@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="zsjpay" default="build" basedir="." xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+	<!-- -->
+	<path id="maven-ant-tasks.classpath" path="tasklib/maven-ant-tasks-2.1.3.jar" />
+	<path id="servlet.classpath" path="tasklib/servlet-api.jar" />
+	<typedef resource="org/apache/maven/artifact/ant/antlib.xml" uri="antlib:org.apache.maven.artifact.ant" classpathref="maven-ant-tasks.classpath" />
+
+	<artifact:pom id="maven.project" file="pom.xml" />
+	<artifact:dependencies pathId="maven.classpath" filesetid="maven.fileset">
+		<pom refid="maven.project" />
+	</artifact:dependencies>
+
+	<property name="build.compiler" value="extJavac" />
+	<property name="src.dir" location="${basedir}/src/main/java" />
+	<property name="resource.dir" location="${basedir}/src/main/resource" />
+
+	<property name="javadoc.dir" location="${basedir}/dist/javadoc" />
+	<property name="dist.dir" value="${basedir}/dist" />
+	<property name="classes.dir" value="${basedir}/dist/classes" />
+	<property name="war.dir" value="${basedir}/dist/war" />
+	<property name="report.dir" value="${basedir}/dist/report" />
+	<property name="mavenlib.dir" value="${basedir}/dist/lib" />
+
+
+	<!--清除任务-->
+	<target name="clean">
+		<delete dir="${javadoc.dir}" excludes="**/.git" />
+		<delete dir="${dist.dir}" excludes="**/.git" />
+
+	</target>
+
+	<!--创建文件夹-->
+	<target name="prepare" depends="clean" description="Create the target directories">
+		<mkdir dir="${dist.dir}" />
+		<mkdir dir="${javadoc.dir}" />
+		<mkdir dir="${classes.dir}" />
+		<mkdir dir="${war.dir}" />
+		<mkdir dir="${mavenlib.dir}" />
+	</target>
+
+	<!--javac编译java类-->
+	<target name="compile" depends="prepare">
+		<javac destdir="${classes.dir}"  target="1.7" encoding="UTF-8" includeantruntime="false">
+			<src path="${src.dir}" />
+			<classpath refid="maven.classpath">
+			</classpath>
+			<classpath refid="servlet.classpath" />
+			<compilerarg line="-encoding UTF-8" />
+		</javac>
+		<copy todir="${classes.dir}">
+			<fileset dir="${resource.dir}">
+			</fileset>
+		</copy>
+	</target>
+	<!--创建javadoc文档-->
+	<!-- <javadoc destdir="${javadoc.dir}" encoding="UTF-8" docencoding="UTF-8"> -->
+	<target name="javadoc" depends="compile">
+		<javadoc destdir="${javadoc.dir}"   encoding="UTF-8" charset="UTF-8" >
+			<packageset dir="${src.dir}">
+				<include name="**" />
+			</packageset>
+		</javadoc>
+	</target>
+
+	<!--
+		
+			================================= PMD report===================== 
+						PMD means from pmd.sourceforge.net:
+					    Pretty Much Done.
+					    Programming Mistake Detector.
+					    <ruleset>basic</ruleset>
+		-->
+
+	<target name="pmd" description="Running PMD......" depends="compile">
+		<mkdir dir="${report.dir}/pmd" />
+		<taskdef name="pmd" classpath="${basedir}/tasklib/pmd/pmd-4.2.5.jar" classname="net.sourceforge.pmd.ant.PMDTask" />
+		<pmd shortFilenames="true">
+			<ruleset>${basedir}/tasklib/pmd/pmd_ruleset_minimal.xml</ruleset>
+			<formatter type="html" toFile="${report.dir}/pmd/pmd_report.html" />
+			<formatter type="xml" toFile="${report.dir}/pmd/pmd.xml" />
+			<fileset dir="${basedir}/src/main/java">
+				<!--<include name="java/lang/*.java"/>-->
+			</fileset>
+		</pmd>
+	</target>
+
+	<!--
+			====== findBugs report=======
+			Run Error:javaheap is over,need modify the configure.
+		-->
+	<taskdef name="findbugs" classname="edu.umd.cs.findbugs.anttask.FindBugsTask" classpath="${basedir}/tasklib/findbugs/findbugs.jar" />
+	<!-- 定义将xml文件转换为html任务 -->
+	<taskdef name="convertXmlToText" classpath="${basedir}/tasklib/findbugs/findbugs.jar" classname="edu.umd.cs.findbugs.anttask.ConvertXmlToTextTask" />
+	<property name="findbugs.home" value="${basedir}/tasklib/findbugs" />
+
+	<target name="findbugs" description="Running findBugs......" depends="compile">
+		<mkdir dir="${report.dir}/findBugs" />
+		<findbugs home="${findbugs.home}" classpath="${basedir}/tasklib/findbugs/findbugs.jar" output="xml" outputFile="${report.dir}/findBugs/findBugs.xml" jvmargs="-Xmx512m">
+			<class location="${classes.dir}" />
+			<!-- show findBugs -->
+			<sourcePath path="${basedir}/src/main/java" />
+		</findbugs>
+		<!-- -->
+		<convertXmlToText home="${findbugs.home}" input="${report.dir}/findBugs/findBugs.xml" output="${report.dir}/findBugs/findbugs_report.html" format="html:default.xsl" />
+	</target>
+
+	
+
+	<target name="jar" depends="compile,javadoc">  
+	        <jar destfile="${dist.dir}/weheros-framework-1.0.jar">  
+	            <fileset dir="${classes.dir}">  
+	                <include name="**/*.class"/> 
+	            	
+	            	<include name="**/*.conf" /> 
+	            	<include name="**/*.sql" /> 
+	            	<include name="**/*.properties" />
+	            	<include name="**/*.dtd" />
+	            	<exclude name="**/*Test.class" />
+	            	<exclude name="**/Test*.class" />       
+	            	
+	            	<exclude name="infrastructure/*.properties" /> 
+	            	<!-- messages -->
+	            	<exclude name="messages/*.properties" />   
+	            	<exclude name="spring/*.xml" />   
+	            </fileset>  
+	         
+	        </jar>  
+	</target>  
+
+
+	<target name="build" depends="jar,javadoc,pmd,findbugs" description="build project publish" />
+	
+</project>
